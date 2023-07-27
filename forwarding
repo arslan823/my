@@ -1,13 +1,7 @@
 #!/bin/bash
 
-# Проверка наличия iptables
-if ! command -v iptables &> /dev/null; then
-    echo "iptables не найден. Установка..."
-    DEBIAN_FRONTEND=noninteractive apt install -y iptables
-fi
-
 # Опция -F для сброса всех существующих правил
-if [[ "$@" == *"-F"* ]]; then
+if [[ $1 == "-F" ]]; then
     iptables -F
     iptables -X
     iptables -Z
@@ -20,6 +14,13 @@ if [[ "$@" == *"-F"* ]]; then
     iptables -t raw -F
     iptables -t raw -X
     iptables -t raw -Z
+    shift 1
+fi
+
+# Проверка наличия iptables
+if ! command -v iptables &> /dev/null; then
+    echo "iptables не найден. Установка..."
+    DEBIAN_FRONTEND=noninteractive apt install -y iptables
 fi
 
 # Переменные
