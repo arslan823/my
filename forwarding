@@ -2,6 +2,9 @@
 
 # Опция -F для сброса всех существующих правил
 if [[ $1 == "-F" ]]; then
+    iptables --policy INPUT   ACCEPT;
+    iptables --policy OUTPUT  ACCEPT;
+    iptables --policy FORWARD ACCEPT;
     iptables -F
     iptables -X
     iptables -Z
