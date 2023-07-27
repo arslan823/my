@@ -31,4 +31,8 @@ fi
 # Применение изменений
 sysctl -p
 
+# Установка iptables-persistent и сохранение правил
+DEBIAN_FRONTEND=noninteractive apt install -y iptables-persistent
+iptables-save > /etc/iptables/rules.v4
+
 echo "Правила iptables и sysctl успешно установлены"
