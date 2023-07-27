@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Проверка наличия iptables
+if ! command -v iptables &> /dev/null; then
+    echo "iptables не найден. Установка..."
+    DEBIAN_FRONTEND=noninteractive apt install -y iptables
+fi
+
 # Переменные
 SOURCE_IP=$1
 DEST_IP=$2
@@ -31,8 +37,12 @@ fi
 # Применение изменений
 sysctl -p
 
-# Установка iptables-persistent и сохранение правил
-DEBIAN_FRONTEND=noninteractive apt install -y iptables-persistent
+# Проверка наличия iptables-persistent и установка, если необходимо
+if ! dpkg -l | grep -q "iptables-persistent"; then
+    DEBIAN_FRONTEND=noninteractive apt install -y iptables-persistent
+fi
+
+# Сохранение правил
 iptables-save > /etc/iptables/rules.v4
 
 echo "Правила iptables и sysctl успешно установлены"
