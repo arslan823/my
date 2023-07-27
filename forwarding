@@ -1,11 +1,5 @@
 #!/bin/bash
 
-# Проверка количества аргументов
-if [ "$#" -lt 4 ]; then
-    echo "Использование: ./iptable_setup.sh <source_ip> <destination_ip> <port> <protocol1> <protocol2> ..."
-    exit 1
-fi
-
 # Переменные
 SOURCE_IP=$1
 DEST_IP=$2
@@ -21,4 +15,20 @@ for PROTOCOL in "${PROTOCOLS[@]}"; do
     iptables -t nat -A POSTROUTING -p $PROTOCOL -m $PROTOCOL --dport $PORT -j SNAT --to-source $SOURCE_IP
 done
 
-echo "Правила iptables успешно установлены"
+# Проверка и добавление правил в sysctl
+if ! grep -q "net.core.default_qdisc = fq" /etc/sysctl.conf; then
+    echo "net.core.default_qdisc = fq" >> /etc/sysctl.conf
+fi
+
+if ! grep -q "net.ipv4.tcp_congestion_control = bbr" /etc/sysctl.conf; then
+    echo "net.ipv4.tcp_congestion_control = bbr" >> /etc/sysctl.conf
+fi
+
+if ! grep -q "net.ipv4.ip_forward = 1" /etc/sysctl.conf; then
+    echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf
+fi
+
+# Применение изменений
+sysctl -p
+
+echo "Правила iptables и sysctl успешно установлены"
