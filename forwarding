@@ -6,6 +6,23 @@ if ! command -v iptables &> /dev/null; then
     DEBIAN_FRONTEND=noninteractive apt install -y iptables
 fi
 
+# Опция -F для сброса всех существующих правил
+if [[ $1 == "-F" ]]; then
+    iptables -F
+    iptables -X
+    iptables -Z
+    iptables -t nat -F
+    iptables -t nat -X
+    iptables -t nat -Z
+    iptables -t mangle -F
+    iptables -t mangle -X
+    iptables -t mangle -Z
+    iptables -t raw -F
+    iptables -t raw -X
+    iptables -t raw -Z
+    shift 1
+fi
+
 # Переменные
 SOURCE_IP=$1
 DEST_IP=$2
