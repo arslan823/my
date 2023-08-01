@@ -1,39 +1,10 @@
 #!/bin/bash
 
-# Опция -F для сброса всех существующих правил
-if [[ $1 == "-F" ]]; then
-    iptables --policy INPUT   ACCEPT;
-    iptables --policy OUTPUT  ACCEPT;
-    iptables --policy FORWARD ACCEPT;
-    iptables -F
-    iptables -X
-    iptables -Z
-    iptables -t nat -F
-    iptables -t nat -X
-    iptables -t nat -Z
-    iptables -t mangle -F
-    iptables -t mangle -X
-    iptables -t mangle -Z
-    iptables -t raw -F
-    iptables -t raw -X
-    iptables -t raw -Z
-    shift 1
-fi
+# ...
 
-# Проверка наличия iptables
-if ! command -v iptables &> /dev/null; then
-    echo "iptables не найден. Установка..."
-    DEBIAN_FRONTEND=noninteractive apt install -y iptables
-fi
-
-# Переменные
-SOURCE_IP=$1
-DEST_IP=$2
-PORT=$3
-shift 3
-
-# Массив протоколов
-PROTOCOLS=("$@")
+# Получаем начальное количество правил
+initial_prerouting_count=$(iptables -t nat -L PREROUTING -n -v --line-numbers | wc -l)
+initial_postrouting_count=$(iptables -t nat -L POSTROUTING -n -v --line-numbers | wc -l)
 
 # Цикл по протоколам
 for PROTOCOL in "${PROTOCOLS[@]}"; do
@@ -41,41 +12,17 @@ for PROTOCOL in "${PROTOCOLS[@]}"; do
     iptables -t nat -A POSTROUTING -p $PROTOCOL -m $PROTOCOL --dport $PORT -j SNAT --to-source $SOURCE_IP
 done
 
+# Получаем конечное количество правил
+final_prerouting_count=$(iptables -t nat -L PREROUTING -n -v --line-numbers | wc -l)
+final_postrouting_count=$(iptables -t nat -L POSTROUTING -n -v --line-numbers | wc -l)
+
 # Проверка правил
-for PROTOCOL in "${PROTOCOLS[@]}"; do
-    if ! iptables -t nat -L -n -v | grep -q "$PROTOCOL.*$SOURCE_IP.*$PORT.*DNAT.*$DEST_IP:$PORT"; then
-        echo "Ошибка: правило DNAT для $PROTOCOL не установлено."
-        exit 1
-    fi
-    if ! iptables -t nat -L -n -v | grep -q "$PROTOCOL.*$PORT.*SNAT.*$SOURCE_IP"; then
-        echo "Ошибка: правило SNAT для $PROTOCOL не установлено."
-        exit 1
-    fi
-done
-
-# Проверка и добавление правил в sysctl
-if ! grep -q "net.core.default_qdisc = fq" /etc/sysctl.conf; then
-    echo "net.core.default_qdisc = fq" >> /etc/sysctl.conf
+if [ $final_prerouting_count -eq $initial_prerouting_count ] || [ $final_postrouting_count -eq $initial_postrouting_count ]; then
+  echo "Ошибка: правила DNAT или SNAT не установлены."
+  exit 1
 fi
 
-if ! grep -q "net.ipv4.tcp_congestion_control = bbr" /etc/sysctl.conf; then
-    echo "net.ipv4.tcp_congestion_control = bbr" >> /etc/sysctl.conf
-fi
-
-if ! grep -q "net.ipv4.ip_forward = 1" /etc/sysctl.conf; then
-    echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf
-fi
-
-# Применение изменений
-sysctl -p
-
-# Проверка наличия iptables-persistent и установка, если необходимо
-if ! dpkg -l | grep -q "iptables-persistent"; then
-    DEBIAN_FRONTEND=noninteractive apt install -y iptables-persistent
-fi
-
-# Сохранение правил
-iptables-save > /etc/iptables/rules.v4
+# ...
 
 if [ $? -eq 0 ]; then
   echo "Правила iptables и sysctl успешно установлены и проверены."
