@@ -32,10 +32,6 @@ DEST_IP=$2
 PORT=$3
 shift 3
 
-echo "SOURCE_IP: $SOURCE_IP"
-echo "DEST_IP: $DEST_IP"
-echo "PORT: $PORT"
-
 # Массив протоколов
 PROTOCOLS=("$@")
 
