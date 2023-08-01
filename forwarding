@@ -17,7 +17,7 @@ if [[ $1 == "-F" ]]; then
     iptables -t raw -F
     iptables -t raw -X
     iptables -t raw -Z
-    shift 1
+    shift  # Сдвиг всех аргументов влево
 fi
 
 # Проверка наличия iptables
@@ -32,11 +32,16 @@ DEST_IP=$2
 PORT=$3
 shift 3
 
+echo "SOURCE_IP: $SOURCE_IP"
+echo "DEST_IP: $DEST_IP"
+echo "PORT: $PORT"
+
 # Массив протоколов
 PROTOCOLS=("$@")
 
 # Цикл по протоколам
 for PROTOCOL in "${PROTOCOLS[@]}"; do
+    echo "Обработка протокола: $PROTOCOL"
     iptables -t nat -A PREROUTING -p $PROTOCOL -d $SOURCE_IP --dport $PORT -j DNAT --to-destination $DEST_IP:$PORT
     iptables -t nat -A POSTROUTING -p $PROTOCOL -m $PROTOCOL --dport $PORT -j SNAT --to-source $SOURCE_IP
 done
@@ -65,4 +70,4 @@ fi
 # Сохранение правил
 iptables-save > /etc/iptables/rules.v4
 
-echo "Правила iptables и sysctl успешно установлены"
+echo "Правила iptables и sysctl успешно установлены и проверены."
