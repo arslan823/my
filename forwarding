@@ -2,23 +2,21 @@
 
 # ...
 
-# Получаем начальное количество правил
-initial_prerouting_count=$(iptables -t nat -L PREROUTING -n -v --line-numbers | wc -l)
-initial_postrouting_count=$(iptables -t nat -L POSTROUTING -n -v --line-numbers | wc -l)
-
 # Цикл по протоколам
 for PROTOCOL in "${PROTOCOLS[@]}"; do
     iptables -t nat -A PREROUTING -p $PROTOCOL -d $SOURCE_IP --dport $PORT -j DNAT --to-destination $DEST_IP:$PORT
     iptables -t nat -A POSTROUTING -p $PROTOCOL -m $PROTOCOL --dport $PORT -j SNAT --to-source $SOURCE_IP
 done
 
-# Получаем конечное количество правил
-final_prerouting_count=$(iptables -t nat -L PREROUTING -n -v --line-numbers | wc -l)
-final_postrouting_count=$(iptables -t nat -L POSTROUTING -n -v --line-numbers | wc -l)
+# Проверка правил DNAT
+if ! iptables -t nat -v -L PREROUTING -n --line-number | grep -q "DNAT.*udp.*$SOURCE_IP.*$PORT.*$DEST_IP:$PORT"; then
+  echo "Ошибка: правило DNAT для udp не установлено."
+  exit 1
+fi
 
-# Проверка правил
-if [ $final_prerouting_count -eq $initial_prerouting_count ] || [ $final_postrouting_count -eq $initial_postrouting_count ]; then
-  echo "Ошибка: правила DNAT или SNAT не установлены."
+# Проверка правил SNAT
+if ! iptables -t nat -v -L POSTROUTING -n --line-number | grep -q "SNAT.*udp.*$PORT.*$SOURCE_IP"; then
+  echo "Ошибка: правило SNAT для udp не установлено."
   exit 1
 fi
 
