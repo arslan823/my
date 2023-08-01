@@ -41,6 +41,18 @@ for PROTOCOL in "${PROTOCOLS[@]}"; do
     iptables -t nat -A POSTROUTING -p $PROTOCOL -m $PROTOCOL --dport $PORT -j SNAT --to-source $SOURCE_IP
 done
 
+# Проверка правил
+for PROTOCOL in "${PROTOCOLS[@]}"; do
+    if ! iptables -t nat -L -n -v | grep -q "$PROTOCOL.*$SOURCE_IP.*$PORT.*DNAT.*$DEST_IP:$PORT"; then
+        echo "Ошибка: правило DNAT для $PROTOCOL не установлено."
+        exit 1
+    fi
+    if ! iptables -t nat -L -n -v | grep -q "$PROTOCOL.*$PORT.*SNAT.*$SOURCE_IP"; then
+        echo "Ошибка: правило SNAT для $PROTOCOL не установлено."
+        exit 1
+    fi
+done
+
 # Проверка и добавление правил в sysctl
 if ! grep -q "net.core.default_qdisc = fq" /etc/sysctl.conf; then
     echo "net.core.default_qdisc = fq" >> /etc/sysctl.conf
@@ -65,4 +77,9 @@ fi
 # Сохранение правил
 iptables-save > /etc/iptables/rules.v4
 
-echo "Правила iptables и sysctl успешно установлены"
+if [ $? -eq 0 ]; then
+  echo "Правила iptables и sysctl успешно установлены и проверены."
+else
+  echo "Ошибка при установке или проверке правил. Правила не установлены."
+  exit 1
+fi
