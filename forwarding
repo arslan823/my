@@ -20,50 +20,41 @@ if [[ $1 == "-F" ]]; then
     shift
 fi
 
+# Проверка и добавление правил в sysctl
+if ! grep -q "net.core.default_qdisc = fq" /etc/sysctl.conf; then
+    echo "net.core.default_qdisc = fq" >> /etc/sysctl.conf
+fi
+
+if ! grep -q "net.ipv4.tcp_congestion_control = bbr" /etc/sysctl.conf; then
+    echo "net.ipv4.tcp_congestion_control = bbr" >> /etc/sysctl.conf
+fi
+
+if ! grep -q "net.ipv4.ip_forward = 1" /etc/sysctl.conf; then
+    echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf
+fi
+
+# Применение изменений
+sysctl -p
+
 # Переменные
 SOURCE_IP=$1
 DEST_IP=$2
 PORT=$3
-shift 3
-
-# Массив протоколов
-PROTOCOLS=("$@")
+PROTOCOL=$4
 
 # Установка правил
-for PROTOCOL in "${PROTOCOLS[@]}"; do
-    iptables -t nat -A PREROUTING -d $SOURCE_IP/32 -p $PROTOCOL -m $PROTOCOL --dport $PORT -j DNAT --to-destination $DEST_IP:$PORT
-    iptables -t nat -A POSTROUTING -p $PROTOCOL -m $PROTOCOL --dport $PORT -j SNAT --to-source $SOURCE_IP
-    iptables -t nat -I POSTROUTING -d $DEST_IP/32 -p $PROTOCOL -m $PROTOCOL --dport $PORT -j SNAT --to-source $SOURCE_IP
-done
+iptables -t nat -A PREROUTING -d $SOURCE_IP/32 -p $PROTOCOL -m $PROTOCOL --dport $PORT -j DNAT --to-destination $DEST_IP:$PORT
+iptables -t nat -A POSTROUTING -s $DEST_IP/32 -p $PROTOCOL -m $PROTOCOL --dport $PORT -j SNAT --to-source $SOURCE_IP
 
 # Проверка правил
-ERROR=false
-for PROTOCOL in "${PROTOCOLS[@]}"; do
-    if ! iptables -t nat -C PREROUTING -d $SOURCE_IP/32 -p $PROTOCOL -m $PROTOCOL --dport $PORT -j DNAT --to-destination $DEST_IP:$PORT; then
-        echo "Ошибка: правило DNAT для $PROTOCOL не установлено."
-        ERROR=true
-    fi
-    if ! iptables -t nat -C POSTROUTING -p $PROTOCOL -m $PROTOCOL --dport $PORT -j SNAT --to-source $SOURCE_IP; then
-        echo "Ошибка: правило SNAT для $PROTOCOL не установлено."
-        ERROR=true
-    fi
-    if ! iptables -t nat -C POSTROUTING -d $DEST_IP/32 -p $PROTOCOL -m $PROTOCOL --dport $PORT -j SNAT --to-source $SOURCE_IP; then
-        echo "Ошибка: правило SNAT для $PROTOCOL не установлено."
-        ERROR=true
-    fi
-done
-
-if $ERROR; then
-    echo "Проверьте введенные данные и повторите попытку."
+if ! iptables -t nat -C PREROUTING -d $SOURCE_IP/32 -p $PROTOCOL -m $PROTOCOL --dport $PORT -j DNAT --to-destination $DEST_IP:$PORT; then
+    echo "Ошибка: правило DNAT для $PROTOCOL не установлено."
     exit 1
 fi
 
-# Проверка наличия iptables-persistent и установка, если необходимо
-if ! dpkg -l | grep -q "iptables-persistent"; then
-    DEBIAN_FRONTEND=noninteractive apt install -y iptables-persistent
+if ! iptables -t nat -C POSTROUTING -s $DEST_IP/32 -p $PROTOCOL -m $PROTOCOL --dport $PORT -j SNAT --to-source $SOURCE_IP; then
+    echo "Ошибка: правило SNAT для $PROTOCOL не установлено."
+    exit 1
 fi
-
-# Сохранение правил
-iptables-save > /etc/iptables/rules.v4
 
 echo "Правила iptables и sysctl успешно установлены и проверены."
