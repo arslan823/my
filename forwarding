@@ -53,4 +53,12 @@ if $ERROR; then
     exit 1
 fi
 
+# Проверка наличия iptables-persistent и установка, если необходимо
+if ! dpkg -l | grep -q "iptables-persistent"; then
+    DEBIAN_FRONTEND=noninteractive apt install -y iptables-persistent
+fi
+
+# Сохранение правил
+iptables-save > /etc/iptables/rules.v4
+
 echo "Правила iptables и sysctl успешно установлены и проверены."
