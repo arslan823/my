@@ -17,7 +17,14 @@ if [[ $1 == "-F" ]]; then
     iptables -t raw -F
     iptables -t raw -X
     iptables -t raw -Z
-    shift
+    echo "Правила iptables сброшены."
+    shift # Удаляем первый параметр
+fi
+
+# Если не указаны необходимые параметры
+if [[ $# -lt 4 ]]; then
+    echo "Ошибка: недостаточно параметров."
+    exit 1
 fi
 
 # Проверка и добавление правил в sysctl
@@ -57,4 +64,4 @@ if ! iptables -t nat -C POSTROUTING -s $DEST_IP/32 -p $PROTOCOL -m $PROTOCOL --d
     exit 1
 fi
 
-echo "Правила iptables и sysctl успешно установлены и проверены."
+echo "Правила iptables успешно установлены и проверены."
