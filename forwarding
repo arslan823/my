@@ -31,18 +31,23 @@ PROTOCOLS=("$@")
 
 # Установка правил
 for PROTOCOL in "${PROTOCOLS[@]}"; do
-    iptables -t nat -A PREROUTING -p $PROTOCOL -d $SOURCE_IP --dport $PORT -j DNAT --to-destination $DEST_IP:$PORT
+    iptables -t nat -A PREROUTING -d $SOURCE_IP/32 -p $PROTOCOL -m $PROTOCOL --dport $PORT -j DNAT --to-destination $DEST_IP:$PORT
     iptables -t nat -A POSTROUTING -p $PROTOCOL -m $PROTOCOL --dport $PORT -j SNAT --to-source $SOURCE_IP
+    iptables -t nat -I POSTROUTING -d $DEST_IP/32 -p $PROTOCOL -m $PROTOCOL --dport $PORT -j SNAT --to-source $SOURCE_IP
 done
 
 # Проверка правил
 ERROR=false
 for PROTOCOL in "${PROTOCOLS[@]}"; do
-    if ! iptables -t nat -C PREROUTING -p $PROTOCOL -d $SOURCE_IP --dport $PORT -j DNAT --to-destination $DEST_IP:$PORT; then
+    if ! iptables -t nat -C PREROUTING -d $SOURCE_IP/32 -p $PROTOCOL -m $PROTOCOL --dport $PORT -j DNAT --to-destination $DEST_IP:$PORT; then
         echo "Ошибка: правило DNAT для $PROTOCOL не установлено."
         ERROR=true
     fi
     if ! iptables -t nat -C POSTROUTING -p $PROTOCOL -m $PROTOCOL --dport $PORT -j SNAT --to-source $SOURCE_IP; then
+        echo "Ошибка: правило SNAT для $PROTOCOL не установлено."
+        ERROR=true
+    fi
+    if ! iptables -t nat -C POSTROUTING -d $DEST_IP/32 -p $PROTOCOL -m $PROTOCOL --dport $PORT -j SNAT --to-source $SOURCE_IP; then
         echo "Ошибка: правило SNAT для $PROTOCOL не установлено."
         ERROR=true
     fi
