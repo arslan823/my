@@ -17,15 +17,29 @@ if [[ $1 == "-F" ]]; then
     iptables -t raw -F
     iptables -t raw -X
     iptables -t raw -Z
-    echo "Правила iptables сброшены."
-    shift # Удаляем первый параметр
+    shift 1
 fi
 
-# Если не указаны необходимые параметры
-if [[ $# -lt 4 ]]; then
-    echo "Ошибка: недостаточно параметров."
-    exit 1
+# Проверка наличия iptables
+if ! command -v iptables &> /dev/null; then
+    echo "iptables не найден. Установка..."
+    DEBIAN_FRONTEND=noninteractive apt install -y iptables
 fi
+
+# Переменные
+SOURCE_IP=$1
+DEST_IP=$2
+PORT=$3
+shift 3
+
+# Массив протоколов
+PROTOCOLS=("$@")
+
+# Цикл по протоколам
+for PROTOCOL in "${PROTOCOLS[@]}"; do
+    iptables -t nat -A PREROUTING -p $PROTOCOL -d $SOURCE_IP --dport $PORT -j DNAT --to-destination $DEST_IP:$PORT
+    iptables -t nat -A POSTROUTING -p $PROTOCOL -m $PROTOCOL --dport $PORT -j SNAT --to-source $SOURCE_IP
+done
 
 # Проверка и добавление правил в sysctl
 if ! grep -q "net.core.default_qdisc = fq" /etc/sysctl.conf; then
@@ -43,25 +57,12 @@ fi
 # Применение изменений
 sysctl -p
 
-# Переменные
-SOURCE_IP=$1
-DEST_IP=$2
-PORT=$3
-PROTOCOL=$4
-
-# Установка правил
-iptables -t nat -A PREROUTING -d $SOURCE_IP/32 -p $PROTOCOL -m $PROTOCOL --dport $PORT -j DNAT --to-destination $DEST_IP:$PORT
-iptables -t nat -A POSTROUTING -s $DEST_IP/32 -p $PROTOCOL -m $PROTOCOL --dport $PORT -j SNAT --to-source $SOURCE_IP
-
-# Проверка правил
-if ! iptables -t nat -C PREROUTING -d $SOURCE_IP/32 -p $PROTOCOL -m $PROTOCOL --dport $PORT -j DNAT --to-destination $DEST_IP:$PORT; then
-    echo "Ошибка: правило DNAT для $PROTOCOL не установлено."
-    exit 1
+# Проверка наличия iptables-persistent и установка, если необходимо
+if ! dpkg -l | grep -q "iptables-persistent"; then
+    DEBIAN_FRONTEND=noninteractive apt install -y iptables-persistent
 fi
 
-if ! iptables -t nat -C POSTROUTING -s $DEST_IP/32 -p $PROTOCOL -m $PROTOCOL --dport $PORT -j SNAT --to-source $SOURCE_IP; then
-    echo "Ошибка: правило SNAT для $PROTOCOL не установлено."
-    exit 1
-fi
+# Сохранение правил
+iptables-save > /etc/iptables/rules.v4
 
-echo "Правила iptables успешно установлены и проверены."
+echo "Правила iptables и sysctl успешно установлены"
