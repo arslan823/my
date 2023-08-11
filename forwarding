@@ -61,6 +61,7 @@ sysctl -p
 if ! dpkg -l | grep -q "iptables-persistent"; then
     DEBIAN_FRONTEND=noninteractive apt install -y iptables-persistent
 fi
+systemctl restart netfilter-persistent
 
 # Сохранение правил
 iptables-save > /etc/iptables/rules.v4
