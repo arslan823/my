@@ -47,7 +47,9 @@ route ADD 185.246.72.0 MASK 255.255.252.0 157.55.80.1
 route ADD 95.47.61.0 MASK 255.255.255.0 157.55.80.1
 
 
-#NTP
+#keenetic 
 ntp server time.google.com
 ntp server 216.239.35.4
 ntp server pool.ntp.org
+no service up
+no ipv6 subnet Default
