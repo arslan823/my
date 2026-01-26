@@ -45,3 +45,9 @@ route ADD 185.69.187.0 MASK 255.255.255.0 157.55.80.1
 route ADD 185.69.186.0 MASK 255.255.255.0 157.55.80.1
 route ADD 185.246.72.0 MASK 255.255.252.0 157.55.80.1
 route ADD 95.47.61.0 MASK 255.255.255.0 157.55.80.1
+
+
+#NTP
+ntp server time.google.com
+ntp server 216.239.35.4
+ntp server pool.ntp.org
