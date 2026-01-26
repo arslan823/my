@@ -53,3 +53,4 @@ ntp server 216.239.35.4
 ntp server pool.ntp.org
 no service up
 no ipv6 subnet Default
+system configuration save
